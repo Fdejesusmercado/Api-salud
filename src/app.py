@@ -14,8 +14,7 @@ CORS(app)
 
 ##Rutas
 app.config['MYSQL_DB'] = 'appsalud'
-app.config['MYSQL_USER'] = 'root'
-app.config['MYSQL_PASSWORD'] = 'root'
+
 dataBase = MySQL(app)
 
 @app.route('/login',methods = ['GET','POST'])

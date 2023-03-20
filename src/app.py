@@ -14,6 +14,8 @@ CORS(app)
 
 ##Rutas
 app.config['MYSQL_DB'] = 'appsalud'
+app.config['MYSQL_USER'] = 'root'
+app.config['MYSQL_PASSWORD'] = 'root'
 dataBase = MySQL(app)
 
 @app.route('/login',methods = ['GET','POST'])
@@ -31,7 +33,10 @@ def login():
                 tokenLogin =  get_token(loggues__user.id,loggues__user.fullname)
 
                 return {'token' : tokenLogin,
-                        'acceso' : True
+                        'acceso' : True,
+                        'fullname' : loggues__user.fullname,
+                        'idUser': loggues__user.id,
+                        'username' : loggues__user.username
                         }
             
             else:

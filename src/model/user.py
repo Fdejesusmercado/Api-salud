@@ -12,5 +12,5 @@ class UserN():
         return check_password_hash(hashed_password,password_plana)
     
     
-# paswor = generate_password_hash('123456789')
-# print(paswor)
+paswor = generate_password_hash('Fande_06*03')
+print(paswor)

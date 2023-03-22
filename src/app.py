@@ -30,7 +30,6 @@ def login():
             if loggues__user.password:
                # obtener el token 
                 tokenLogin =  get_token(loggues__user.id,loggues__user.fullname)
-
                 return {'token' : tokenLogin,
                         'acceso' : True,
                         'fullname' : loggues__user.fullname,
@@ -44,22 +43,36 @@ def login():
             return {'token':False, 'acceso':False, 'description': 'Usuario no existe'}
        
        
-# @app.route('/hola')
-# def hola():
-#     cursor = dataBase.connection.cursor()
-#     sql = """SELECT idusuarios, usuario ,password,nombre, rol_idrol FROM usuarios 
-#         WHERE usuario = '{}'""".format('fdejesusmercado')
-#     cursor.execute(sql)
-#     row = cursor.fetchone()
-#     if row != None:
-#         userRetur = UserN(row[0],row[1],UserN.check_password(row[2],'123456789'),row[4],row[3])
-#         if userRetur.password:
-#              return """<h1> Bienvendio al sistema '{}'</h1>""".format(userRetur.fullname)
-#         else:
-#             return 'contraseña incorrecta'
-           
-#     else:
-#         return 'nada'   
+@app.route('/cargarPerfil',methods = ['GET','POST'])
+def cargarPerfil():
+    token = request.json['token']
+    print(token)
+    if request.method == 'GET':
+        return{'status':'GET'}
+    elif request.method == 'POST':
+        try:
+            # Verificar firma y decodificar token
+            decoded_token = jwt.decode(token, 'secreto', algorithms=['HS256'])
+            print(decoded_token['user_id']) 
+            cursor = dataBase.connection.cursor()
+            sql = """SELECT nombre, apellido, rol_idrol FROM usuarios WHERE idusuarios ={} """.format(decoded_token['user_id'])
+            cursor.execute(sql)
+            row = cursor.fetchone()
+            if row != None:
+                userRetur = UserN(decoded_token['user_id'],'','',row[0]+" "+row[1],row[2])
+                return jsonify({'fullname':userRetur.fullname,
+                                'cargo':userRetur.cargo
+                                })
+            else:
+                return None
+
+            
+        except jwt.InvalidTokenError:
+        # Manejar errores de token inválido
+            return
+    else:        
+        return 
+   
 
 # funcion para generar token
 def get_token(idUser,userName):

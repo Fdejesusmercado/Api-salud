@@ -21,7 +21,7 @@ dataBase = MySQL(app)
 @app.route('/login',methods = ['GET','POST'])
 def login():
     if request.method == 'GET':
-        return '<h1>Metodo GET -Error-</h1>'
+        return jsonify(  {'token':False, 'acceso':False, 'description': 'Metodo GET'})
     elif request.method == 'POST':
         userDesdeCliente =  request.json
 
@@ -45,23 +45,58 @@ def login():
             return {'token':False, 'acceso':False, 'description': 'Usuario no existe'}
        
        
-# @app.route('/hola')
-# def hola():
-#     cursor = dataBase.connection.cursor()
-#     sql = """SELECT idusuarios, usuario ,password,nombre, rol_idrol FROM usuarios 
-#         WHERE usuario = '{}'""".format('fdejesusmercado')
-#     cursor.execute(sql)
-#     row = cursor.fetchone()
-#     if row != None:
-#         userRetur = UserN(row[0],row[1],UserN.check_password(row[2],'123456789'),row[4],row[3])
-#         if userRetur.password:
-#              return """<h1> Bienvendio al sistema '{}'</h1>""".format(userRetur.fullname)
-#         else:
-#             return 'contraseña incorrecta'
-           
-#     else:
-#         return 'nada'   
+@app.route('/cargarPerfil',methods = ['GET','POST'])
+def cargarPerfil():
+    token = request.json['token']
+    print(token)
+    if request.method == 'GET':
+        return{'status':'GET'}
+    elif request.method == 'POST':
+        try:
+            # Verificar firma y decodificar token
+            decoded_token = jwt.decode(token, 'secreto', algorithms=['HS256'])
+            print(decoded_token['user_id']) 
+            cursor = dataBase.connection.cursor()
+            sql = """SELECT nombre, apellido, rol_idrol FROM usuarios WHERE idusuarios ={} """.format(decoded_token['user_id'])
+            cursor.execute(sql)
+            row = cursor.fetchone()
+            if row != None:
+                userRetur = UserN(decoded_token['user_id'],'','',row[0]+" "+row[1],row[2])
 
+                documentos = cargarDocumentos(decoded_token['user_id'])
+
+                return jsonify({'fullname':userRetur.fullname,
+                                'cargo':userRetur.cargo
+                                },documentos)
+            else:
+                return None
+
+            
+        except jwt.InvalidTokenError:
+        # Manejar errores de token inválido
+            return
+    else:        
+        return 
+
+def cargarDocumentos(idUser):
+     doc = []
+     cursor = dataBase.connection.cursor()
+     sql = """select appsalud.usuarios.nombre, apellido, nombreRol,url, appsalud.documentos.nombre_documento, appsalud.tipo_documento.nombre AS EXTENCION from appsalud.usuarios 
+     inner join  appsalud.rol on rol.idrol = usuarios.rol_idrol
+     inner join appsalud.documentos on  documentos.usuarios_idusuarios = usuarios.idusuarios
+     inner join appsalud.tipo_documento on documentos.id_tipo_documento = tipo_documento.idtipo_documento
+     where idusuarios = {}""".format(1)
+     cursor.execute(sql)
+     row = cursor.fetchall()
+
+     if row != None:  
+         for i in row:
+          print({'nombre': row[i][i]})
+          
+     else:
+         return jsonify({'status': 'err'})
+     print(doc)
+    
 # funcion para generar token
 def get_token(idUser,userName):
     # Crear el payload

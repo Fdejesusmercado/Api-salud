@@ -1,5 +1,6 @@
 
 from flask import Flask, request, jsonify
+from werkzeug.security import check_password_hash, generate_password_hash
 import jwt
 from flask_cors import CORS
 from flask_socketio import SocketIO, emit, join_room
@@ -162,6 +163,40 @@ def cargarDoctoresPorId():
             pass
         pass
 
+@app.route('/cargarHistorial',methods = ['GET','POST','PUT'])
+def cargarHistorial():
+   
+    if request.method == 'POST':
+        historial = []
+        token = request.json['token']
+        decoded_token = jwt.decode(token, 'secreto', algorithms=['HS256'])
+        try:
+            cursor = dataBase.connection.cursor()
+            sql = '''call appsalud.verServiciosDeDoctoresPorId({})'''.format(decoded_token['user_id'])
+            cursor.execute(sql)
+           
+            row = cursor.fetchall()
+            if row != None:
+                for i in row:
+                    historial.append({
+                        'idusuarios':i[0],
+                        'NombrePersona':i[1]+" "+i[2],
+                        'Email':i[3],
+                        'fecha':i[4].strftime('%d/%m/%Y %H:%M:%S'),
+                        'estado':i[5],
+                        'rolPersona':i[6],
+                        'idservicio':i[7],
+                    })
+            
+                return jsonify({'historial':historial})
+            else:
+                return jsonify({'status':'Entro a else'})
+        except dataBase.connection.Error as error:
+            return jsonify({'status':error})
+        
+    else:
+        return jsonify({'status':'Metodo no valido'})
+    
 @app.route('/cargarPerfilPorId',methods = ['GET','POST','PUT'])
 def cargarPerfilPorId():
     idPerfil = request.json['id']
@@ -196,6 +231,54 @@ def cargarPerfilPorId():
 
 
     pass
+@app.route('/updateEstado',methods=['PUT'])
+def updateEstado():
+    idservicio = request.json['idservicio']
+    estadoActualizar = request.json['estadoActualizar']
+    if request.method == 'PUT':
+        try:
+            cursor = dataBase.connection.cursor()
+            sql = '''call appsalud.updateEstado({},{})'''.format(idservicio,estadoActualizar)
+            cursor.execute(sql)
+            dataBase.connection.commit()
+            return jsonify({'status':'Actualizado'})
+        except:
+            return jsonify({'status':'entro al except'})
+    else:
+        return jsonify({
+            'status':'metod diferente de PUT'
+        })
+
+@app.route('/registrarUser',methods=['post'])
+def registrarUser():
+     
+    if request.method == 'POST':
+        nombre = request.json['nombre']
+        apellido = request.json['apellido']
+        username = request.json['username']
+        password = generate_password_hash(request.json['password'])
+        
+        email = request.json['email']
+        ROL = int(request.json['rol'])
+        departamento = int(request.json['departamento'])
+        lat = request.json['lat']
+        lon = request.json['lon']
+        print(nombre,apellido,username,password,email,ROL,departamento,lat,lon)
+        try:
+             cursor = dataBase.connection.cursor()
+             cursor.callproc("RegistrarUser", [nombre,apellido,username,password,email,ROL,departamento,lat,lon])
+            #  sql = """call appsalud.RegistrarUser('{}','{}','{}','{}','{}',{},{},{},{});""".fotmat(nombre,apellido,username,password,email,ROL,departamento,lat,lon)
+            #  cursor.execute(sql)
+             dataBase.connection.commit()   
+             return jsonify({'status':'User Registrado corrcetamente'})
+        except:
+            return jsonify({'status':'Ha ocurrido un error'})
+
+        
+    else:
+        return jsonify({'status':'metodo diferente de POST'})
+
+
 def cargarDocumentos(idUser):
      
      cursor = dataBase.connection.cursor()
@@ -219,8 +302,7 @@ def cargarDocumentos(idUser):
         
           
      else:
-         return jsonify({'status': 'err'})
-     
+         return jsonify({'status': 'err'})     
 def cargarDiscapacidadesPorId(idUser):
      cursor = dataBase.connection.cursor()
      sql = """select idtipo_discapacidad, nombre, descripcion from appsalud.discapacidades
@@ -263,7 +345,6 @@ def cargarTodasLasDiscapacidades():
          return jsonify({'status': 'err'})        
 
 
-
 #socketio rutas
 @socketio.on('addSala')
 def handle_sala(id):
@@ -280,9 +361,6 @@ def handle_sala(id):
     #        print(i[0])
     #        
     
-    
-    
-
 @socketio.on('SolicitarServicio') 
 def handle_solicitarServicio(id):
     token = id['token']
@@ -294,8 +372,15 @@ def handle_solicitarServicio(id):
     if row != None:
         print(row[0][0])
         print(id['id'])
-        emit('AlguienEstaEnTuSala',{'data': row[0][0] +" "+row[0][1],'idUser':decoded_token['user_id']}, room= int(id['id']))
-
+        
+        try:
+            cursor = dataBase.connection.cursor()
+            sql = '''call appsalud.GenerarServicioDomicilio({},{})'''.format(id['id'],decoded_token['user_id'])
+            cursor.execute(sql)
+            dataBase.connection.commit()   
+            emit('AlguienEstaEnTuSala',{'data': row[0][0] +" "+row[0][1],'idUser':decoded_token['user_id']}, room= int(id['id']))
+        except:
+            print('entro except')
 
 @socketio.on('message')
 def handle_message(message):
